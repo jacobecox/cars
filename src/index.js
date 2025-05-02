@@ -27,7 +27,50 @@ app.use(express.urlencoded({ extended: true }));
 
 // Basic route
 app.get('/', (req, res) => {
-  res.json({ message: 'Welcome to the Cars API!' });
+  res.json({ message: 'Welcome to the Cars API' });
+});
+
+// Database connection test route
+app.get('/db', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    // Test the connection with a simple query
+    await client.query('SELECT 1');
+    res.json({ status: 'success', message: 'Database connection successful' });
+  } catch (error) {
+    console.error('Database connection error:', error);
+    res.status(500).json({ 
+      status: 'error', 
+      message: 'Database connection failed',
+      error: error.message 
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// S3 bucket connection test route
+app.get('/bucket', async (req, res) => {
+  try {
+    // Test the connection by listing objects in the bucket
+    const s3Command = new ListObjectsV2Command({
+      Bucket: 'car-photos-collection',
+      MaxKeys: 1 // Only fetch 1 object to test the connection
+    });
+    
+    await s3Client.send(s3Command);
+    res.json({ 
+      status: 'success', 
+      message: 'S3 bucket connection successful' 
+    });
+  } catch (error) {
+    console.error('S3 bucket connection error:', error);
+    res.status(500).json({ 
+      status: 'error', 
+      message: 'S3 bucket connection failed',
+      error: error.message 
+    });
+  }
 });
 
 // Route to fetch cars with their photos
@@ -35,7 +78,7 @@ app.get('/cars', async (req, res) => {
   const client = await pool.connect();
   try {
     // Get cars from PostgreSQL
-    const carsResult = await client.query('SELECT * FROM cars ORDER BY id');
+    const carsResult = await client.query('SELECT * FROM cars');
     const cars = carsResult.rows;
 
     // Get photos from S3
