@@ -1,7 +1,8 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const { Pool } = require('pg');
-const { S3Client, ListObjectsV2Command, ListBucketsCommand } = require('@aws-sdk/client-s3');
+const { S3Client, ListObjectsV2Command, ListBucketsCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const cors = require('cors');
 const awsTestConfig = require('../config/aws-test');
 
@@ -85,38 +86,56 @@ app.get('/bucket', async (req, res) => {
   }
 });
 
-// Route to fetch cars with their photos
+// Route to serve images
+app.get('/images/:key', async (req, res) => {
+  try {
+    const { key } = req.params;
+    const command = new GetObjectCommand({
+      Bucket: 'car-photos-collection',
+      Key: key
+    });
+
+    // Generate a signed URL that expires in 1 hour
+    const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+    res.redirect(signedUrl);
+  } catch (error) {
+    console.error('Error serving image:', error);
+    res.status(500).json({ error: 'Error serving image' });
+  }
+});
+
+// Route to get all car photos
+app.get('/cars/photos', async (req, res) => {
+  try {
+    // Get all photos from S3
+    const s3Command = new ListObjectsV2Command({
+      Bucket: 'car-photos-collection'
+    });
+    
+    const s3Response = await s3Client.send(s3Command);
+    const photos = s3Response.Contents
+      .map(item => ({
+        key: item.Key,
+        url: `/images/${item.Key}`
+      }));
+
+    res.json(photos);
+  } catch (error) {
+    console.error('Error fetching photos:', error);
+    res.status(500).json({ error: 'Error fetching photos' });
+  }
+});
+
+// Route to fetch cars
 app.get('/cars', async (req, res) => {
   const client = await pool.connect();
   try {
     // Get cars from PostgreSQL
     const carsResult = await client.query('SELECT * FROM cars');
     const cars = carsResult.rows;
+    console.log('Cars from database:', cars.map(car => ({ id: car.id, make: car.make, model: car.model })));
 
-    // Get photos from S3
-    const s3Command = new ListObjectsV2Command({
-      Bucket: 'car-photos-collection'
-    });
-    
-    const s3Response = await s3Client.send(s3Command);
-    const photos = s3Response.Contents.map(item => ({
-      key: item.Key,
-      url: `https://car-photos-collection.s3.amazonaws.com/${item.Key}`
-    }));
-
-    // Combine cars with their photos
-    const carsWithPhotos = cars.map(car => {
-      // Match photos with cars based on the photo key containing the car ID
-      const carPhotos = photos.filter(photo => 
-        photo.key.includes(car.id.toString())
-      );
-      return {
-        ...car,
-        photos: carPhotos
-      };
-    });
-
-    res.json(carsWithPhotos);
+    res.json(cars);
   } catch (error) {
     console.error('Error:', error);
     res.status(500).json({ error: 'Internal server error' });
