@@ -1,20 +1,18 @@
-# Use Node.js LTS version as the base image
-FROM node:20-alpine
+FROM node:18-alpine
 
-# Set working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json
+# Copy package files and install only production dependencies
 COPY package*.json ./
-
-# Install dependencies
-RUN npm install
+RUN npm install --only=production
 
 # Copy the rest of the application
 COPY . .
 
-# Expose the port the app runs on
-EXPOSE 3000
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=8080
 
-# Command to run the application
-CMD ["npm", "start"] 
+EXPOSE 8080
+
+CMD ["node", "src/index.js"]

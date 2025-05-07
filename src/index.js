@@ -114,6 +114,7 @@ app.get('/cars/photos', async (req, res) => {
     
     const s3Response = await s3Client.send(s3Command);
     const photos = s3Response.Contents
+      .sort((a, b) => a.Key.localeCompare(b.Key)) // Sort by key to ensure consistent order
       .map(item => ({
         key: item.Key,
         url: `/images/${item.Key}`
