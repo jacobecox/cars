@@ -2,12 +2,13 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files and install only production dependencies
+# Copy package files and install production dependencies
 COPY package*.json ./
 RUN npm install --only=production
 
-# Copy the rest of the application
-COPY . .
+# Copy source code
+COPY src ./src
+COPY config ./config
 
 # Set environment variables
 ENV NODE_ENV=production

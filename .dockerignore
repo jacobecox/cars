@@ -28,10 +28,6 @@ yarn-error.log
 ehthumbs.db
 Thumbs.db
 
-# Docker files
-Dockerfile
-.dockerignore
-
 # Test files
 __tests__
 *.test.js
